@@ -137,6 +137,7 @@ class Document(db.Model):
     image = db.relationship(
         Image,
         backref="document",
+        cascade="all, delete, delete-orphan",
         single_parent=True,
         lazy=True
     )

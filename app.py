@@ -10,7 +10,7 @@ from models import (Document, Entity, Image, Reference, METADATA, RESOURCES,
                     document_schema, documents_schema, entities_schema, images_schema)
 import secrets, os
 
-UPLOAD_FOLDER = os.path.join('static', 'images')
+UPLOAD_FOLDER = os.path.join(app.root_path, 'static', 'images')
 IMAGE_EXTENSIONS = {'png', 'jpg', 'jpeg'}
 PARENTS = {'document_id': Document, 'entity_id': Entity, 'reference_id': Reference}
 RESOURCE = f"any({','.join(RESOURCES)})"
@@ -156,7 +156,10 @@ def save_document():
 
 @app.route("/document/<int:id>", methods=['DELETE'])
 def delete_document(id):
-    db.session.delete(db.get_or_404(Document, id))
+    document = db.get_or_404(Document, id)
+    for image in document.image:
+        remove_image_file(image)
+    db.session.delete(document)
     db.session.commit()
     return f"Success: document with ID = {id} deleted"
 
@@ -213,6 +216,13 @@ def download_tei(document_id):
     return response
 
 
+def image_path(image):
+    return os.path.join(app.config['UPLOAD_FOLDER'], image.name)
+
+def remove_image_file(image):
+    if os.path.exists(image_path(image)):
+        os.remove(image_path(image))
+
 def allowed_image(filename):
     return '.' in filename and \
            filename.rsplit('.', 1)[1].lower() in IMAGE_EXTENSIONS
@@ -224,9 +234,12 @@ def create_image(document_id):
     if not file or not allowed_image(file.filename):
         flash('Please select a png, jpg or jpeg file.')
     else:
-        filename = secure_filename(file.filename)
-        file.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
-        db.session.add(Image(document_id=document_id, name=filename))
+        image = Image(document_id=document_id, name=secure_filename(file.filename))
+        db.session.add(image)
+        db.session.flush()
+        # the id keeps files with the same name apart
+        image.name = f"{image.id}_{image.name}"
+        file.save(image_path(image))
         db.session.commit()
 
     return redirect(url_for('edit_document', id=document_id))
@@ -243,14 +256,10 @@ def get_image(image_id):
 @app.route('/static/images/<int:image_id>', methods=['DELETE'])
 def delete_image(image_id):
     image = db.get_or_404(Image, image_id)
-    image_path = os.path.join(app.config['UPLOAD_FOLDER'], image.name)
-    if os.path.exists(image_path):
-        db.session.delete(image)
-        db.session.commit()
-        os.remove(image_path)
-        return render_template('new_image.html', images=read_images())
-    else:
-        return "Image not found", 404
+    remove_image_file(image)
+    db.session.delete(image)
+    db.session.commit()
+    return render_template('new_image.html', images=read_images())
 
 
 if __name__ == '__main__':
