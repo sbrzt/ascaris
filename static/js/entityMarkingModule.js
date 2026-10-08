@@ -1,5 +1,5 @@
 import { createPanelBlock } from './panelBlockModule.js';
-import { createAnnotation } from './annotationModule.js';
+import { openAnnotations } from './annotationModule.js';
 
 const EntityMarkingModule = (function () {
 
@@ -42,138 +42,84 @@ const EntityMarkingModule = (function () {
     }
   ];
 
-  const documentId = document.querySelector('#editableContent').getAttribute('data-documentId');
+  const editableContent = document.querySelector('#editableContent');
+  const documentId = editableContent.getAttribute('data-documentId');
+
+  async function post(url, data) {
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data)
+    });
+    if (!response.ok) {
+      throw new Error(`POST ${url} failed with status ${response.status}`);
+    }
+    return response.json();
+  }
+
+  async function markEntity(buttonDetails) {
+    const selection = window.getSelection();
+    if (selection.rangeCount === 0 || selection.toString().trim() === "") return;
+    const range = selection.getRangeAt(0);
+    const container = range.commonAncestorContainer;
+    const element = container.nodeType === Node.ELEMENT_NODE ? container : container.parentElement;
+    // Only text of the document can be marked, and references do not nest
+    if (!editableContent.contains(container) || element.closest('.reference')) return;
+    const selectedText = range.toString();
+
+    const span = document.createElement("span");
+    try {
+      // Throws when the selection cuts through another element
+      range.surroundContents(span);
+    } catch (error) {
+      console.error('Selection cannot be marked:', error);
+      return;
+    }
+
+    try {
+      const entity = await post('/entity', {
+        document_id: documentId,
+        label: selectedText,
+        type: buttonDetails.spanClass,
+        authority: null
+      });
+      const reference = await post('/reference', {
+        document_id: documentId,
+        entity_id: entity.id,
+        text: selectedText,
+        type: entity.type
+      });
+
+      span.classList.add("button", "reference", reference.type);
+      span.contentEditable = false;
+      span.setAttribute("id", `reference-${reference.id}`);
+      span.setAttribute("data-id", reference.id);
+      span.setAttribute("data-entity", reference.entity_id);
+      const icon = document.createElement("i");
+      icon.classList.add("tag-icon", "fas", `fa-${buttonDetails.iconClass}`);
+      span.appendChild(icon);
+
+      const panelContent = document.querySelector(`.${buttonDetails.panelClass}`);
+      panelContent.appendChild(createPanelBlock(entity, [reference]));
+    } catch (error) {
+      console.error('Error marking entity:', error);
+      span.replaceWith(...span.childNodes);
+    }
+  }
 
   buttons.forEach(buttonDetails => {
     const button = document.querySelector(buttonDetails.buttonSelector);
-    button.addEventListener("click", function () {
-      const selection = window.getSelection();
-      if (selection.toString().trim() !== "") {
-        const range = selection.getRangeAt(0);
-        const selectedText = range.toString();
-        
-        // Create the entity data
-        const entityData = {
-          document_id: documentId,
-          label: selectedText,
-          type: buttonDetails.spanClass,
-          authority: null
-        };
-
-        // Make an HTTP POST request to create the entity
-        fetch('/entity', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify(entityData)
-        })
-        .then(entityResponse => entityResponse.json())
-        .then(entityDataResponse => {
-            
-            // Create the reference data
-            const referenceData = {
-                document_id: entityDataResponse.document_id,
-                entity_id: entityDataResponse.id,
-                text: selectedText,
-                type: entityDataResponse.type
-            };
-
-            // Make an HTTP POST request to create the reference
-            fetch('/reference', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify(referenceData)
-            })
-            .then((referenceResponse) => referenceResponse.json())
-            .then((referenceDataResponse) => {
-              const span = document.createElement("span");
-              span.classList.add("button", "reference", referenceDataResponse.type);
-              span.contentEditable = false;
-              span.setAttribute("id", `reference-${referenceDataResponse.id}`);
-              span.setAttribute("data-id", referenceDataResponse.id);
-              span.setAttribute("data-entity", referenceDataResponse.entity_id);
-
-              span.addEventListener("click", function(event) {
-                event.preventDefault();
-                span.classList.toggle("selected");
-              });
-
-              range.surroundContents(span);
-              const icon = document.createElement("i");
-              icon.classList.add(
-                "tag-icon", 
-                "fas", 
-                `fa-${referenceDataResponse.type}`
-              );
-              span.appendChild(icon);
-              
-              /*
-              let annotationCounter = document.createElement("span");
-              annotationCounter.classList.add(
-                "counter", 
-                "tag", 
-                "is-info",
-                "is-light"
-              );
-              annotationCounter.textContent = referenceDataResponse.annotation.length;
-              span.appendChild(annotationCounter);
-              */
-
-              fetch(`/entity/${referenceDataResponse.entity_id}`, {
-                  method: 'GET',
-                  headers: {
-                      'Content-Type': 'application/json'
-                  },
-              })
-            
-            .then(entityGetResponse => entityGetResponse.json())
-            .then(entityGetDataResponse => {
-              
-              // Create entity box
-              const block = createPanelBlock(entityGetDataResponse, entityGetDataResponse.reference);
-              const panelContent = document.querySelector(`.${buttonDetails.panelClass}`);
-              panelContent.appendChild(block);
-
-            })
-          })
-            
-            .catch(referenceError => {
-                console.error('Error creating reference:', referenceError);
-            });
-        })
-        .catch(entityError => {
-            console.error('Error creating entity:', entityError);
-        });
-
-      }
-    });
-
+    button.addEventListener("click", () => markEntity(buttonDetails));
   });
 
-  const references = document.querySelectorAll(".reference");
-    references.forEach((reference) => {
-      reference.addEventListener("click", function(event) {
-        event.preventDefault();
-        fetch(`/reference/${reference.getAttribute("data-id")}`, {
-          method: 'GET',
-          headers: {
-              'Content-Type': 'application/json'
-          },
-        })
-        .then(response => response.json())
-        .then(referenceData => {
-
-          createAnnotation(referenceData);
-          
-        })
-        .catch(error => {
-            console.error("Error fetching reference data: ", error);
-        });
-      });
-    })
+  // Delegated, so references marked after page load open their annotations too
+  editableContent.addEventListener("click", function (event) {
+    const reference = event.target.closest(".reference");
+    if (reference) {
+      event.preventDefault();
+      openAnnotations(reference);
+    }
+  });
 
 })();
 

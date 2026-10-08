@@ -76,7 +76,7 @@ const InterfaceModule = (function () {
 
     function handleRemoveButtonClick(field) {
         return function (event) {
-            const removeButton = event.target;
+            const removeButton = event.currentTarget;
             const inputGroup = removeButton.closest(`.${field}-input-group`);
             if (removeButton.classList.contains(`remove-${field}-button`)) {
                 const fieldId = inputGroup.getAttribute('data-id');

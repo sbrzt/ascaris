@@ -72,9 +72,8 @@ entityPanel.addEventListener("click", function (event) {
     content.classList.toggle("is-hidden");
   } 
   
-  else if (event.target.classList.contains("delete-button")) {
-    const deleteButton = event.target;
-    const block = deleteButton.parentNode.parentNode.parentNode;
+  else if (event.target.closest(".delete-button")) {
+    const block = event.target.closest(".panel-block");
     fetch(`/entity/${block.getAttribute("data-id")}`, {
       method: 'DELETE',
       headers: {
@@ -99,18 +98,18 @@ entityPanel.addEventListener("click", function (event) {
           const counter = reference.querySelector(".counter");
           counter.textContent = "";
           */
-            reference.outerHTML = reference.textContent;
+            reference.replaceWith(reference.textContent);
         }
     });
   }
 });
 
 
-const entityForms = document.querySelectorAll(".entity-form");
-entityForms.forEach(function (form) {
-  form.addEventListener("submit", function (event) {
+// Delegated, so blocks created after page load are handled too
+entityPanel.addEventListener("submit", function (event) {
     event.preventDefault();
-    const block = form.parentElement.parentElement;
+    const form = event.target;
+    const block = form.closest(".panel-block");
     const entityId = Number(block.getAttribute("data-id"));
     const entityType = block.getAttribute("data-type");
     const entityLabel = form.querySelector(".entity-label-input").value;
@@ -136,7 +135,6 @@ entityForms.forEach(function (form) {
     .catch(error => {
         console.error('Error updating entity', error);
     });
-  });
 });
 
 export { createPanelBlock };

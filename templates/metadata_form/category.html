@@ -8,7 +8,7 @@
           <select id="category-type" name="category-type" class="dropdown metadata-category-type">
             <option value="">--Select--</option>
             {% for concept in concepts %}
-                <option value="{{ concept.value }}"</option>
+                <option value="{{ concept.value }}">{{ concept.label }}</option>
             {% endfor %}
           </select>
         </div>

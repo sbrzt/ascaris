@@ -40,5 +40,12 @@
 </div>
 
 
+<template id="annotation-modal-template">
+  {% with reference = {'annotation': []} %}{% include 'annotation_modal.html' %}{% endwith %}
+</template>
+<template id="annotation-template">
+  {% with reference = {}, annotation = {} %}{% include 'annotation.html' %}{% endwith %}
+</template>
+
 <script type="module" src="{{ url_for('static', filename='js/editor.js') }}"></script>
 {% endblock %}

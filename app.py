@@ -1,4 +1,5 @@
-from flask import Response, abort, render_template, request, flash, jsonify, redirect, send_from_directory
+from flask import Response, abort, render_template, request, flash, jsonify, redirect, send_from_directory, url_for
+from markupsafe import escape
 from marshmallow import ValidationError
 from rdflib import Graph, Namespace, RDF
 from werkzeug.utils import secure_filename
@@ -16,6 +17,8 @@ RESOURCE = f"any({','.join(RESOURCES)})"
 
 app.secret_key = secrets.token_hex(24)
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
+# unfilled fields are null in the database, show them empty instead of "None"
+app.jinja_env.finalize = lambda value: '' if value is None else value
 
 with app.app_context():
     db.create_all()
@@ -29,9 +32,13 @@ def invalid_payload(error):
 def read_document(id):
     return document_schema.dump(db.get_or_404(Document, id))
 
-def create_document(payload):
-    db.session.add(document_schema.load(payload))
+def create_document(title, text):
+    # the editor stores HTML: escape the plain text and turn line breaks into <br>
+    content = '<br>'.join(str(escape(text)).splitlines())
+    document = document_schema.load({'docTitle': title, 'content': content})
+    db.session.add(document)
     db.session.commit()
+    return redirect(url_for('edit_document', id=document.id))
 
 def read_images(document_id=None):
     query = Image.query.filter_by(document_id=document_id) if document_id else Image.query
@@ -106,7 +113,7 @@ def edit_document(id):
 @app.route('/document/new', methods=['GET', 'POST'])
 def new_document():
     if request.method == 'POST':
-        create_document({'docTitle': request.form['docTitle'], 'content': request.form['content']})
+        return create_document(request.form['docTitle'], request.form['content'])
     return render_template('new_document.html')
 
 
@@ -132,7 +139,8 @@ def upload_document():
             else:
                 content = None
             if content:
-                create_document({'docTitle': title, 'content': content})
+                return create_document(title, content)
+            flash('Could not read any text from the file.', 'error')
     return render_template('new_document.html')
 
 
@@ -158,7 +166,7 @@ def save_metadata(id):
     data = request.get_json()
     for field_group in METADATA:
         for field in data.get(field_group) or []:
-            update_resource(field_group, field['id'], {k: v for k, v in field.items() if k != 'id'})
+            update_resource(field_group, int(field['id']), {k: v for k, v in field.items() if k != 'id'})
     return jsonify(data), 200
 
 
@@ -194,21 +202,17 @@ def allowed_image(filename):
 
 @app.route('/image/<int:document_id>', methods=['POST'])
 def create_image(document_id):
-    if 'file' not in request.files:
-        flash('No file part')
-        return redirect(request.url)
-    file = request.files['file']
-    if file.filename == '':
-        flash('No selected file')
-        return redirect(request.url)
-    if file and allowed_image(file.filename):
-        db.get_or_404(Document, document_id)
+    db.get_or_404(Document, document_id)
+    file = request.files.get('file')
+    if not file or not allowed_image(file.filename):
+        flash('Please select a png, jpg or jpeg file.')
+    else:
         filename = secure_filename(file.filename)
         file.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
         db.session.add(Image(document_id=document_id, name=filename))
         db.session.commit()
 
-    return render_template('new_image.html', images=read_images())
+    return redirect(url_for('edit_document', id=document_id))
 
 @app.route('/static/images', methods=['GET'])
 def get_images():

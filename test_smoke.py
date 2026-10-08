@@ -19,7 +19,9 @@ def test_mvp_path():
         db.create_all()
     c = app.test_client()
 
-    assert c.post("/document/new", data={"docTitle": "Doc", "content": "x"}).status_code == 200
+    created = c.post("/document/new", data={"docTitle": "Doc", "content": "a <b>\nc"})
+    assert created.status_code == 302
+    assert c.get("/document/1").get_json()["content"] == "a &lt;b&gt;<br>c"
     assert c.get("/").status_code == 200
 
     entity = c.post("/entity", json={"document_id": 1, "label": "Dante", "type": "person", "authority": None})
@@ -41,12 +43,15 @@ def test_mvp_path():
         "creationDate": [], "category": [], "abstract": []}).status_code == 200
 
     assert c.post("/pubDate", json={"document_id": 1, "date": "2023-08-31T10:00:00.640000"}).status_code == 201
+    # rows the user added but has not filled yet must not break the editor or the export
+    for field in ("pubAuthority", "note", "pubDate", "responsibility"):
+        assert c.post(f"/{field}", json={"document_id": 1}).status_code == 201
 
     upload = c.post("/image/1", data={"file": (io.BytesIO(b"png"), "page.png")})
-    assert upload.status_code == 200
+    assert upload.status_code == 302
     assert c.get("/static/images/1").status_code == 200
 
-    content = 'Hello <span class="reference person" id="reference-1" data-id="1" data-entity="1">Dante</span><br>'
+    content = 'Hello <span class="reference person" id="reference-1" data-id="1" data-entity="1">Dante</span><br>last line'
     assert c.post("/save_document", json={"id": 1, "docTitle": "Doc", "content": content}).status_code == 201
     assert c.get("/document/1/edit").status_code == 200
     assert len(c.get("/document/1").get_json()["image"]) == 1, "autosave detached images"
@@ -60,5 +65,7 @@ def test_mvp_path():
     assert soup.find("person", attrs={"xml:id": "entity-1"}), "ref target resolves to no entity"
     assert soup.find("annotation")
     assert soup.find("date", when="2023-08-31")
+    assert "last line" in soup.find("body").get_text()
+    assert b"None" not in c.get("/document/1/edit").data
 
     assert c.delete("/document/1").status_code == 200

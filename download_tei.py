@@ -15,7 +15,17 @@ def read_template():
         print(f"An error occurred while reading the file: {e}")
 
 
+def blank_nones(value):
+    if isinstance(value, dict):
+        return {key: blank_nones(item) for key, item in value.items()}
+    if isinstance(value, list):
+        return [blank_nones(item) for item in value]
+    return "" if value is None else value
+
+
 def generate_tei(document):
+    # fields the user has not filled yet are null in the database
+    document = blank_nones(document)
     soup = BeautifulSoup(read_template(), 'xml')
     
     titleStmt = soup.find('titleStmt')
@@ -46,7 +56,7 @@ def generate_tei(document):
             tei_auth = soup.new_tag('publisher')
         elif pubAuthority['role'] == 'distributor':
             tei_auth = soup.new_tag('distributor')
-        elif pubAuthority['role'] == 'authority':
+        else:
             tei_auth = soup.new_tag('authority')
         tei_auth['xml:id'] = f'pubauth-{pubAuthority["id"]}'
         tei_auth['sameAs'] = pubAuthority['authority']
@@ -120,7 +130,7 @@ def generate_tei(document):
     
     tei_body = soup.find('body')
     clean_content = document['content'].strip()
-    split_content = clean_content.split('<br>')[:-1]
+    split_content = [chunk for chunk in clean_content.split('<br>') if chunk.strip()]
     joined_content = ''
     for i, content_chunk in enumerate(split_content):
         content_chunk = f'<p xml:id="paragraph-{i}" n="{i}">{content_chunk}</p>'
