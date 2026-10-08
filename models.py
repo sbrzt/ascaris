@@ -8,13 +8,6 @@ class Image(db.Model):
     document_id = db.Column(db.Integer, db.ForeignKey("document.id"))
     name = db.Column(db.String)
 
-class ImageSchema(ma.SQLAlchemyAutoSchema):
-    class Meta:
-        model = Image
-        load_instance = True
-        sqla_session = db.session
-        include_fk = True
-
 class Annotation(db.Model):
     __tablename__ = "annotation"
     id = db.Column(db.Integer, primary_key=True)
@@ -26,13 +19,6 @@ class Annotation(db.Model):
     license = db.Column(db.String)
     created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
-
-class AnnotationSchema(ma.SQLAlchemyAutoSchema):
-    class Meta:
-        model = Annotation
-        load_instance = True
-        sqla_session = db.session
-        include_fk = True
 
 class Reference(db.Model):
     __tablename__ = "reference"
@@ -48,14 +34,6 @@ class Reference(db.Model):
         single_parent=True,
         lazy=True)
 
-class ReferenceSchema(ma.SQLAlchemyAutoSchema):
-    class Meta:
-        model = Reference
-        load_instance = True
-        sqla_session = db.session
-        include_fk = True
-    annotation = fields.Nested(AnnotationSchema, many=True)
-
 class Entity(db.Model):
     __tablename__ = "entity"
     id = db.Column(db.Integer, primary_key=True)
@@ -70,27 +48,12 @@ class Entity(db.Model):
         single_parent=True,
         lazy=True)
 
-class EntitySchema(ma.SQLAlchemyAutoSchema):
-    class Meta:
-        model = Entity
-        load_instance = True
-        sqla_session = db.session
-        include_fk = True
-    reference = fields.Nested(ReferenceSchema, many=True)
-
 class Title(db.Model):
     __tablename__ = "title"
     id = db.Column(db.Integer, primary_key=True)
     document_id = db.Column(db.Integer, db.ForeignKey("document.id"))
     text = db.Column(db.String)
     language = db.Column(db.String)
-
-class TitleSchema(ma.SQLAlchemyAutoSchema):
-    class Meta:
-        model = Title
-        load_instance = True
-        sqla_session = db.session
-        include_fk = True
 
 class Responsibility(db.Model):
     __tablename__ = "responsibility"
@@ -101,13 +64,6 @@ class Responsibility(db.Model):
     authority = db.Column(db.String)
     role = db.Column(db.String)
 
-class ResponsibilitySchema(ma.SQLAlchemyAutoSchema):
-    class Meta:
-        model = Responsibility
-        load_instance = True
-        sqla_session = db.session
-        include_fk = True
-
 class PubAuthority(db.Model):
     __tablename__ = "pub_authority"
     id = db.Column(db.Integer, primary_key=True)
@@ -116,13 +72,6 @@ class PubAuthority(db.Model):
     authority = db.Column(db.String)
     role = db.Column(db.String)
 
-class PubAuthoritySchema(ma.SQLAlchemyAutoSchema):
-    class Meta:
-        model = PubAuthority
-        load_instance = True
-        sqla_session = db.session
-        include_fk = True
-
 class PubPlace(db.Model):
     __tablename__ = "pub_place"
     id = db.Column(db.Integer, primary_key=True)
@@ -130,25 +79,11 @@ class PubPlace(db.Model):
     name = db.Column(db.String)
     authority = db.Column(db.String)
 
-class PubPlaceSchema(ma.SQLAlchemyAutoSchema):
-    class Meta:
-        model = PubPlace
-        load_instance = True
-        sqla_session = db.session
-        include_fk = True
-
 class PubDate(db.Model):
     __tablename__ = "pub_date"
     id = db.Column(db.Integer, primary_key=True)
     document_id = db.Column(db.Integer, db.ForeignKey('document.id'))
     date = db.Column(db.DateTime)
-
-class PubDateSchema(ma.SQLAlchemyAutoSchema):
-    class Meta:
-        model = PubDate
-        load_instance = True
-        sqla_session = db.session
-        include_fk = True
 
 class Identifier(db.Model):
     __tablename__ = "identifier"
@@ -157,13 +92,6 @@ class Identifier(db.Model):
     text = db.Column(db.String)
     type = db.Column(db.String)
 
-class IdentifierSchema(ma.SQLAlchemyAutoSchema):
-    class Meta:
-        model = Identifier
-        load_instance = True
-        sqla_session = db.session
-        include_fk = True
-
 class License(db.Model):
     __tablename__ = "license"
     id = db.Column(db.Integer, primary_key=True)
@@ -171,25 +99,11 @@ class License(db.Model):
     text = db.Column(db.String)
     link = db.Column(db.String)
 
-class LicenseSchema(ma.SQLAlchemyAutoSchema):
-    class Meta:
-        model = License
-        load_instance = True
-        sqla_session = db.session
-        include_fk = True
-
 class Source(db.Model):
     __tablename__ = "source"
     id = db.Column(db.Integer, primary_key=True)
     document_id = db.Column(db.Integer, db.ForeignKey('document.id'))
     text = db.Column(db.String)
-
-class SourceSchema(ma.SQLAlchemyAutoSchema):
-    class Meta:
-        model = Source
-        load_instance = True
-        sqla_session = db.session
-        include_fk = True
 
 class Note(db.Model):
     __tablename__ = "note"
@@ -197,25 +111,11 @@ class Note(db.Model):
     document_id = db.Column(db.Integer, db.ForeignKey('document.id'))
     text = db.Column(db.String)
 
-class NoteSchema(ma.SQLAlchemyAutoSchema):
-    class Meta:
-        model = Note
-        load_instance = True,
-        sqla_session = db.session
-        include_fk = True
-
 class Abstract(db.Model):
     __tablename__ = "abstract"
     id = db.Column(db.Integer, primary_key=True)
     document_id = db.Column(db.Integer, db.ForeignKey('document.id'))
     text = db.Column(db.String)
-
-class AbstractSchema(ma.SQLAlchemyAutoSchema):
-    class Meta:
-        model = Abstract
-        load_instance = True
-        sqla_session = db.session
-        include_fk = True
 
 class CreationDate(db.Model):
     __tablename__ = "creation_date"
@@ -223,25 +123,11 @@ class CreationDate(db.Model):
     document_id = db.Column(db.Integer, db.ForeignKey('document.id'))
     date = db.Column(db.DateTime)
 
-class CreationDateSchema(ma.SQLAlchemyAutoSchema):
-    class Meta:
-        model = CreationDate
-        load_instance = True
-        sqla_session = db.session
-        include_fk = True
-
 class Category(db.Model):
     __tablename__ = "category"
     id = db.Column(db.Integer, primary_key=True)
     document_id = db.Column(db.Integer, db.ForeignKey('document.id'))
     type = db.Column(db.String)
-
-class CategorySchema(ma.SQLAlchemyAutoSchema):
-    class Meta:
-        model = Category
-        load_instance = True
-        sqla_session = db.session
-        include_fk = True
 
 class Document(db.Model):
     __tablename__ = "document"
@@ -339,48 +225,42 @@ class Document(db.Model):
     def __repr__(self):
         return f"<Document {self.id}>"
 
-class DocumentSchema(ma.SQLAlchemyAutoSchema):
-    class Meta:
-        model = Document
-        load_instance = True
-        sqla_session = db.session
-        include_relationships = True
-    image = fields.Nested(ImageSchema, many=True)
-    title = fields.Nested(TitleSchema, many=True)
-    responsibility = fields.Nested(ResponsibilitySchema, many=True)
-    pubAuthority = fields.Nested(PubAuthoritySchema, many=True)
-    pubPlace = fields.Nested(PubPlaceSchema, many=True)
-    pubDate = fields.Nested(PubDateSchema, many=True)
-    identifier = fields.Nested(IdentifierSchema, many=True)
-    license = fields.Nested(LicenseSchema, many=True)
-    source = fields.Nested(SourceSchema, many=True)
-    note = fields.Nested(NoteSchema, many=True)
-    abstract = fields.Nested(AbstractSchema, many=True)
-    creationDate = fields.Nested(CreationDateSchema, many=True)
-    category = fields.Nested(CategorySchema, many=True)
-    entity = fields.Nested(EntitySchema, many=True)
-    reference = fields.Nested(ReferenceSchema, many=True)
+def make_schema(model, **nested_fields):
+    meta = type("Meta", (), {"model": model, "load_instance": True, "sqla_session": db.session, "include_fk": True})
+    return type(f"{model.__name__}Schema", (ma.SQLAlchemyAutoSchema,), {"Meta": meta, **nested_fields})
 
-title_schema = TitleSchema()
-responsibility_schema = ResponsibilitySchema()
-pubAuthority_schema = PubAuthoritySchema()
-pubPlace_schema = PubPlaceSchema()
-pubDate_schema = PubDateSchema()
-identifier_schema = IdentifierSchema()
-license_schema = LicenseSchema()
-source_schema = SourceSchema()
-note_schema = NoteSchema()
-abstract_schema = AbstractSchema()
-creationDate_schema = CreationDateSchema()
-category_schema = CategorySchema()
+def nested(schema):
+    return fields.Nested(schema, many=True)
 
-entity_schema = EntitySchema()
-entities_schema = EntitySchema(many=True)
-reference_schema = ReferenceSchema()
-annotation_schema = AnnotationSchema()
+# URL segment and Document relationship name -> model
+METADATA = {
+    "title": Title,
+    "responsibility": Responsibility,
+    "pubAuthority": PubAuthority,
+    "pubPlace": PubPlace,
+    "pubDate": PubDate,
+    "identifier": Identifier,
+    "license": License,
+    "source": Source,
+    "note": Note,
+    "abstract": Abstract,
+    "creationDate": CreationDate,
+    "category": Category,
+}
 
-image_schema = ImageSchema()
+schemas = {name: make_schema(model) for name, model in METADATA.items()}
+schemas["annotation"] = make_schema(Annotation)
+schemas["reference"] = make_schema(Reference, annotation=nested(schemas["annotation"]))
+schemas["entity"] = make_schema(Entity, reference=nested(schemas["reference"]))
+ImageSchema = make_schema(Image)
+DocumentSchema = make_schema(
+    Document,
+    image=nested(ImageSchema),
+    **{name: nested(schema) for name, schema in schemas.items() if name not in ("reference", "annotation")})
+
+RESOURCES = {name: (schema.Meta.model, schema()) for name, schema in schemas.items()}
+
+entities_schema = schemas["entity"](many=True)
 images_schema = ImageSchema(many=True)
-
 document_schema = DocumentSchema()
 documents_schema = DocumentSchema(many=True)

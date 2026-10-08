@@ -18,7 +18,4 @@ document.addEventListener("DOMContentLoaded", function () {
   // Initialize the Save Document module
   SaveDocumentModule.startAutoSave(documentId);
 
-  // Initialize the Auto Markup module
-  // AutoMarkUpModule();
-
 });

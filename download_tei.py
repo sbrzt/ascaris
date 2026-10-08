@@ -1,10 +1,6 @@
 import re
-import zipfile
-import os
-from bs4 import BeautifulSoup, Tag
+from bs4 import BeautifulSoup
 from datetime import datetime
-from models import Document
-import requests
 
 
 def read_template():
@@ -239,30 +235,3 @@ def generate_tei(document):
     extent.append(tei_measure_annotations)
 
     return soup.prettify()
-
-
-def generate_tei_mass():
-    temp_dir = 'temp_tei_files'
-    os.makedirs(temp_dir, exist_ok=True)
-    all_documents = Document.query.all()
-    try:
-        for document in all_documents:
-            tei_document = generate_tei(document)
-            tei_filename = f"tei-{document['id']}.xml"
-            tei_filepath = os.path.join(temp_dir, tei_filename)
-            with open(tei_filepath, 'w', encoding='utf-8') as tei_file:
-                tei_file.write(tei_document)
-        zip_filename = 'tei_documents.zip'
-        with zipfile.ZipFile(zip_filename, 'w', zipfile.ZIP_DEFLATED) as tei_zip:
-            for document in all_documents:
-                tei_filename = f"{document['id']}.xml"
-                tei_filepath = os.path.join(temp_dir, tei_filename)
-                tei_zip.write(tei_filepath, os.path.basename(tei_filepath))
-        for document in all_documents:
-            tei_filename = f"{document['id']}.xml"
-            tei_filepath = os.path.join(temp_dir, tei_filename)
-            os.remove(tei_filepath)
-        os.rmdir(temp_dir)
-    except Exception as e:
-        raise Exception(f"An error occurred: {e}")
-    return zip_filename
