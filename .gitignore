@@ -1,4 +1,6 @@
-venv/Lib/
-venv/Lib/site-packages/werkzeug/
-migrations/
-static/node_modules/
+.venv/
+__pycache__/
+*.pyc
+node_modules/
+instance/*.db
+.pytest_cache/
