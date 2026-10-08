@@ -1,18 +1,24 @@
 import re
+from pathlib import Path
 from bs4 import BeautifulSoup
 
+TEMPLATE = Path(__file__).parent / "templates" / "tei_template.xml"
 
-def read_template():
-    xml_file_path = "templates/tei_template.xml"
-    xml_content = ""
-    try:
-        with open(xml_file_path, 'r', encoding='utf-8') as file:
-            xml_content = file.read()
-            return xml_content
-    except FileNotFoundError:
-        print(f"File not found: {xml_file_path}")
-    except Exception as e:
-        print(f"An error occurred while reading the file: {e}")
+# metadata role -> element of titleStmt; TEI has <funder>, the form calls it "founder"
+RESPONSIBILITY_TAGS = {'author': 'author', 'editor': 'editor', 'founder': 'funder', 'sponsor': 'sponsor'}
+PUB_AUTHORITY_TAGS = {'publisher': 'publisher', 'distributor': 'distributor'}
+# entity type -> (list in standOff, element of the entity, element of each label)
+ENTITY_TAGS = {
+    'person': ('listPerson', 'person', 'persName'),
+    'organization': ('listOrg', 'org', 'orgName'),
+    'place': ('listPlace', 'place', 'placeName'),
+    'work': ('listBibl', 'bibl', 'title'),
+    'event': ('listEvent', 'event', 'label'),
+    'term': ('list', 'item', 'term'),
+}
+# the only values tei_all accepts for annotation/@motivation
+MOTIVATIONS = {'assessing', 'bookmarking', 'classifying', 'commenting', 'describing', 'editing', 'highlighting',
+               'identifying', 'linking', 'moderating', 'questioning', 'replying', 'tagging'}
 
 
 def blank_nones(value):
@@ -24,235 +30,169 @@ def blank_nones(value):
 
 
 def generate_tei(document):
+    """Return the document as TEI XML that is valid against tei_all.
+
+    Rows the user added but left empty are skipped, and containers that TEI
+    does not allow to be empty are removed or get a placeholder.
+    """
     # fields the user has not filled yet are null in the database
     document = blank_nones(document)
-    soup = BeautifulSoup(read_template(), 'xml')
-    
+    soup = BeautifulSoup(TEMPLATE.read_text(encoding='utf-8'), 'xml')
+
+    def add(parent, name, text=None, **attributes):
+        """Append an element; xml_id becomes xml:id, empty attributes are left out."""
+        tag = soup.new_tag(name)
+        if text is not None:
+            tag.string = text
+        for key, value in attributes.items():
+            if value != "":
+                tag[key.replace('xml_', 'xml:')] = value
+        parent.append(tag)
+        return tag
+
     titleStmt = soup.find('titleStmt')
-    for title in document['title']:
-        tei_title = soup.new_tag('title')
-        tei_title['xml:id'] = f'title-{title["id"]}'
-        tei_title['xml:lang'] = title['language']
-        tei_title.string = title['text']
-        titleStmt.append(tei_title)
+    titles = [title for title in document['title'] if title['text']]
+    for title in titles:
+        add(titleStmt, 'title', title['text'], xml_id=f'title-{title["id"]}', xml_lang=title['language'])
+    if not titles:
+        add(titleStmt, 'title', document['docTitle'])
     for responsibility in document['responsibility']:
-        if responsibility['role'] == 'author':
-            tei_resp = soup.new_tag('author')
-        elif responsibility['role'] == 'editor':
-            tei_resp = soup.new_tag('editor')
-        elif responsibility['role'] == 'founder':
-            tei_resp = soup.new_tag('founder')
-        elif responsibility['role'] == 'sponsor':
-            tei_resp = soup.new_tag('sponsor')
-        else:
-            tei_resp = soup.new_tag('principal')
-        tei_resp['xml:id'] = f'resp-{responsibility["id"]}'
-        tei_resp['sameAs'] = responsibility['authority']
-        tei_resp.string = f'{responsibility["surname"]}, {responsibility["name"]}'
-        titleStmt.append(tei_resp)
+        name = ', '.join(part for part in (responsibility['surname'], responsibility['name']) if part)
+        if name:
+            add(titleStmt, RESPONSIBILITY_TAGS.get(responsibility['role'], 'principal'), name,
+                xml_id=f'resp-{responsibility["id"]}', sameAs=responsibility['authority'])
+
+    # TEI wants a publisher, distributor or authority before any other publication detail
     publicationStmt = soup.find('publicationStmt')
-    for pubAuthority in document['pubAuthority']:
-        if pubAuthority['role'] == 'publisher':
-            tei_auth = soup.new_tag('publisher')
-        elif pubAuthority['role'] == 'distributor':
-            tei_auth = soup.new_tag('distributor')
-        else:
-            tei_auth = soup.new_tag('authority')
-        tei_auth['xml:id'] = f'pubauth-{pubAuthority["id"]}'
-        tei_auth['sameAs'] = pubAuthority['authority']
-        tei_auth.string = pubAuthority['name']
-        publicationStmt.append(tei_auth)
+    agencies = [pubAuthority for pubAuthority in document['pubAuthority'] if pubAuthority['name']]
+    for pubAuthority in agencies:
+        add(publicationStmt, PUB_AUTHORITY_TAGS.get(pubAuthority['role'], 'authority'), pubAuthority['name'],
+            xml_id=f'pubauth-{pubAuthority["id"]}', sameAs=pubAuthority['authority'])
+    placeholder = None if agencies else add(publicationStmt, 'publisher', 'Unknown')
     for identifier in document['identifier']:
-        tei_idno = soup.new_tag('idno')
-        tei_idno['xml:id'] = f'ident-{identifier["id"]}'
-        tei_idno['type'] = identifier['type']
-        tei_idno.string = identifier['text']
-        publicationStmt.append(tei_idno)
+        if identifier['text']:
+            add(publicationStmt, 'idno', identifier['text'],
+                xml_id=f'ident-{identifier["id"]}', type=identifier['type'])
     for pubPlace in document['pubPlace']:
-        tei_pubPlace = soup.new_tag('pubPlace')
-        tei_pubPlace['xml:id'] = f'pubplace-{pubPlace["id"]}'
-        tei_pubPlace['sameAs'] = pubPlace['authority']
-        tei_pubPlace.string = pubPlace['name']
-        publicationStmt.append(tei_pubPlace)
+        if pubPlace['name']:
+            add(publicationStmt, 'pubPlace', pubPlace['name'],
+                xml_id=f'pubplace-{pubPlace["id"]}', sameAs=pubPlace['authority'])
     for pubDate in document['pubDate']:
-        if not pubDate["date"]:
-            continue
-        tei_pubDate = soup.new_tag('date')
-        formatted_pubDate = pubDate["date"][:10]
-        tei_pubDate['xml:id'] = f'pubdate-{pubDate["id"]}'
-        tei_pubDate['when'] = formatted_pubDate
-        tei_pubDate.string = formatted_pubDate
-        publicationStmt.append(tei_pubDate)
+        if pubDate['date']:
+            add(publicationStmt, 'date', pubDate['date'][:10],
+                xml_id=f'pubdate-{pubDate["id"]}', when=pubDate['date'][:10])
     for license in document['license']:
-        tei_availability = soup.new_tag('availability')
-        tei_license = soup.new_tag('licence')
-        tei_p = soup.new_tag('p')
-        tei_license['xml:id'] = f'license-{license["id"]}'
-        tei_license['target'] = license['link']
-        tei_p.string = license['text']
-        tei_license.append(tei_p)
-        tei_availability.append(tei_license)
-        publicationStmt.append(tei_availability)
+        if license['text'] or license['link']:
+            tei_license = add(add(publicationStmt, 'availability'), 'licence',
+                              xml_id=f'license-{license["id"]}', target=license['link'])
+            if license['text']:
+                add(tei_license, 'p', license['text'])
+    if placeholder and placeholder.find_next_sibling() is None:
+        placeholder.name = 'p'
+        placeholder.string = 'No publication information provided.'
+
     notesStmt = soup.find('notesStmt')
     for note in document['note']:
-        tei_note = soup.new_tag('note')
-        tei_note['xml:id'] = f'note-{note["id"]}'
-        tei_note.string = note['text']
-        notesStmt.append(tei_note)
+        if note['text']:
+            add(notesStmt, 'note', note['text'], xml_id=f'note-{note["id"]}')
+    if notesStmt.find() is None:
+        notesStmt.decompose()
+
     sourceDesc = soup.find('sourceDesc')
     for source in document['source']:
-        tei_source = soup.new_tag('bibl')
-        tei_source['xml:id'] = f'source-{source["id"]}'
-        tei_source.string = source['text']
-        sourceDesc.append(tei_source)
+        if source['text']:
+            add(sourceDesc, 'bibl', source['text'], xml_id=f'source-{source["id"]}')
+    if sourceDesc.find() is None:
+        add(sourceDesc, 'p', 'No source information provided.')
+
     creation = soup.find('creation')
     for creationDate in document['creationDate']:
-        if not creationDate["date"]:
-            continue
-        tei_creationDate = soup.new_tag('date')
-        formatted_creationDate = creationDate["date"][:10]
-        tei_creationDate['xml:id'] = f'creationdate-{creationDate["id"]}'
-        tei_creationDate['when'] = formatted_creationDate
-        tei_creationDate.string = formatted_creationDate
-        creation.append(tei_creationDate)
+        if creationDate['date']:
+            add(creation, 'date', creationDate['date'][:10],
+                xml_id=f'creationdate-{creationDate["id"]}', when=creationDate['date'][:10])
     textClass = soup.find('textClass')
     for category in document['category']:
-        tei_catRef = soup.new_tag('catRef')
-        tei_catRef['xml:id'] = f'category-{category["id"]}'
-        tei_catRef['target'] = category['type']
-        textClass.append(tei_catRef)
+        if category['type']:
+            add(textClass, 'catRef', xml_id=f'category-{category["id"]}', target=category['type'])
     profileDesc = soup.find('profileDesc')
     for abstract in document['abstract']:
-        tei_abstract = soup.new_tag('abstract')
-        tei_abstract['xml:id'] = f'abstract-{abstract["id"]}'
-        tei_abstract.string = abstract['text']
-        profileDesc.append(tei_abstract)
-    
+        if abstract['text']:
+            add(add(profileDesc, 'abstract', xml_id=f'abstract-{abstract["id"]}'), 'p', abstract['text'])
+
+    # one paragraph per line of the editor
     tei_body = soup.find('body')
-    clean_content = document['content'].strip()
-    split_content = [chunk for chunk in clean_content.split('<br>') if chunk.strip()]
-    joined_content = ''
-    for i, content_chunk in enumerate(split_content):
-        content_chunk = f'<p xml:id="paragraph-{i}" n="{i}">{content_chunk}</p>'
-        joined_content += content_chunk
-    content_soup = BeautifulSoup(joined_content, 'html.parser')
-    references = content_soup.find_all('span', class_='reference')
+    lines = [line for line in document['content'].strip().split('<br>') if line.strip()] or ['']
+    paragraphs = ''.join(f'<p xml:id="paragraph-{i}" n="{i}">{line}</p>' for i, line in enumerate(lines))
+    content_soup = BeautifulSoup(paragraphs, 'html.parser')
     # the database, not the markup, says which entity a reference points to
     entity_of = {str(reference['id']): entity['id']
                  for entity in document['entity'] for reference in entity['reference']}
-    for reference in references:
+    for reference in content_soup.find_all('span', class_='reference'):
         ref_tag = soup.new_tag('ref')
         ref_tag.string = reference.text
-        for attr_name, attr_value in reference.attrs.items():
-            if attr_name == 'id':
-                ref_tag['xml:id'] = f'{attr_value}'
-            elif attr_name == 'data-id' and attr_value in entity_of:
-                ref_tag['target'] = f'#entity-{entity_of[attr_value]}'
+        if reference.get('id'):
+            ref_tag['xml:id'] = reference['id']
+        if reference.get('data-id') in entity_of:
+            ref_tag['target'] = f"#entity-{entity_of[reference['data-id']]}"
         reference.replace_with(ref_tag)
+    # any other HTML the browser left in the text is not TEI: keep its text only
+    for tag in content_soup.find_all(True):
+        if tag.name not in ('p', 'ref'):
+            tag.unwrap()
     tei_body.append(content_soup)
-    
-    for entity in document['entity']:
-        if entity['type'] == 'person':
-            list_entity = soup.find('listPerson')
-            new_entity = soup.new_tag('person')
-            new_entity_label = soup.new_tag('persName')
-        elif entity['type'] == 'organization':
-            list_entity = soup.find('listOrg')
-            new_entity = soup.new_tag('organization')
-            new_entity_label = soup.new_tag('orgName')
-        elif entity['type'] == 'place':
-            list_entity = soup.find('listPlace')
-            new_entity = soup.new_tag('place')
-            new_entity_label = soup.new_tag('placeName')
-        elif entity['type'] == 'work':
-            list_entity = soup.find('listBibl')
-            new_entity = soup.new_tag('bibl')
-            new_entity_label = soup.new_tag('title')
-        elif entity['type'] == 'event':
-            list_entity = soup.find('listEvent')
-            new_entity = soup.new_tag('event')
-            new_entity_label = soup.new_tag('label')
-        elif entity['type'] == 'term':
-            list_entity = soup.find('list')
-            new_entity = soup.new_tag('item')
-            new_entity_label = soup.new_tag('term')
-        new_entity['xml:id'] = f"entity-{entity['id']}"
-        new_entity['sameAs'] = entity['authority']
-        # one name element per label, see merge_entity
-        for label in entity['label'].split('\n'):
-            label_tag = soup.new_tag(new_entity_label.name)
-            label_tag.string = label
-            new_entity.append(label_tag)
-        list_entity.append(new_entity)
 
+    standOff = soup.find('standOff')
+    for entity in document['entity']:
+        if entity['type'] not in ENTITY_TAGS:
+            continue
+        list_name, entity_name, label_name = ENTITY_TAGS[entity['type']]
+        new_entity = add(standOff.find(list_name), entity_name,
+                         xml_id=f"entity-{entity['id']}", sameAs=entity['authority'])
+        # one name element per label, see merge_entity
+        labels = [label for label in entity['label'].split('\n') if label]
+        for label in labels or [reference['text'] for reference in entity['reference']]:
+            add(new_entity, label_name, label)
+
+    # annotations of a reference whose text was deleted have nothing to point at
+    anchored = {ref.get('xml:id') for ref in tei_body.find_all('ref')}
     listAnnotation = soup.find('listAnnotation')
     for entity in document['entity']:
         for reference in entity['reference']:
+            if f'reference-{reference["id"]}' not in anchored:
+                continue
             for annotation in reference['annotation']:
-                tei_annotation = soup.new_tag('annotation')
-                tei_annotation['xml:id'] = f'annotation-{annotation["id"]}'
-                tei_annotation['xml:lang'] = annotation['language']
-                tei_annotation['motivation'] = annotation['motivation']
-                tei_annotation['target'] = f'#reference-{annotation["reference_id"]}'
-                tei_annotation_note = soup.new_tag('note')
-                tei_annotation_note.string = annotation['text']
-                tei_annotation_license = soup.new_tag('license')
-                tei_annotation_license['target'] = annotation['license']
-                tei_annotation_revision = soup.new_tag('revisionDesc')
-                tei_annotation_created = soup.new_tag('change')
-                tei_annotation_modified = soup.new_tag('change')
-                tei_annotation_created['when'] = annotation['created_at']
-                tei_annotation_created['status'] = 'created'
-                tei_annotation_modified['when'] = annotation['updated_at']
-                tei_annotation_modified['status'] = 'modified'
-                tei_annotation_revision.append(tei_annotation_created)
-                tei_annotation_revision.append(tei_annotation_modified)
-                tei_annotation.append(tei_annotation_revision)
-                tei_annotation.append(tei_annotation_note)
-                tei_annotation.append(tei_annotation_license)
-                listAnnotation.append(tei_annotation)
+                tei_annotation = add(listAnnotation, 'annotation',
+                                     xml_id=f'annotation-{annotation["id"]}',
+                                     xml_lang=annotation['language'],
+                                     motivation=annotation['motivation'] if annotation['motivation'] in MOTIVATIONS else '',
+                                     target=f'#reference-{annotation["reference_id"]}')
+                revision = add(tei_annotation, 'revisionDesc')
+                add(revision, 'change', when=annotation['created_at'], status='created')
+                add(revision, 'change', when=annotation['updated_at'], status='modified')
+                # tei_all wants the licence before the note
+                if annotation['license']:
+                    add(tei_annotation, 'licence', target=annotation['license'])
+                if annotation['text']:
+                    add(tei_annotation, 'note', annotation['text'])
+
+    # TEI does not allow these lists, or standOff itself, to be empty
+    for entity_list in standOff.find_all(recursive=False):
+        if entity_list.find() is None:
+            entity_list.decompose()
+    if standOff.find() is None:
+        standOff.decompose()
+
+    text = tei_body.get_text()
+    counts = {
+        'characters': len(text),
+        'words': len(re.findall(r'\w+', text)),
+        'sentences': len([sentence for sentence in re.split(r'(?<=[.!?])\s+', text) if sentence.strip()]),
+        'references': len(tei_body.find_all('ref')),
+        'annotations': len(listAnnotation.find_all('annotation')),
+    }
     extent = soup.find('extent')
-    text = soup.get_text()
-    character_count = len(text)
-    words = re.findall(r'\w+', text)
-    word_count = len(words)
-    sentences = re.split(r'(?<=[.!?])\s+', text)
-    sentence_count = len(sentences)
-    tei_measure_characters = soup.new_tag('measure')
-    tei_measure_characters['unit'] = 'characters'
-    tei_measure_characters['quantity'] = character_count
-    tei_measure_characters.string = str(character_count)
-    tei_measure_words = soup.new_tag('measure')
-    tei_measure_words['unit'] = 'words'
-    tei_measure_words['quantity'] = word_count
-    tei_measure_words.string = str(word_count)
-    tei_measure_sentences = soup.new_tag('measure')
-    tei_measure_sentences['unit'] = 'sentences'
-    tei_measure_sentences['quantity'] = sentence_count
-    tei_measure_sentences.string = str(sentence_count)
+    for unit, count in counts.items():
+        add(extent, 'measure', str(count), unit=unit, quantity=count)
 
-    reference_elements = tei_body.find_all('ref')
-    reference_count = len(reference_elements)
-    tei_measure_references = soup.new_tag('measure')
-    tei_measure_references['unit'] = 'references'
-    tei_measure_references['quantity'] = reference_count
-    tei_measure_references.string = str(reference_count)
-
-    annotation_elements = listAnnotation.find_all('annotation')
-    annotation_count = len(annotation_elements)
-    tei_measure_annotations = soup.new_tag('measure')
-    tei_measure_annotations['unit'] = 'annotations'
-    tei_measure_annotations['quantity'] = annotation_count
-    tei_measure_annotations.string = str(annotation_count)
-
-    extent.append(tei_measure_characters)
-    extent.append(tei_measure_words)
-    extent.append(tei_measure_sentences)
-    extent.append(tei_measure_references)
-    extent.append(tei_measure_annotations)
-
-    # an attribute set to None is serialized without a value, which is not well-formed XML
-    for tag in soup.find_all(True):
-        tag.attrs = {name: value for name, value in tag.attrs.items() if value not in (None, "")}
-
-    return soup.prettify()
+    # not prettify(): it would put line breaks and indentation inside the text of the edition
+    return str(soup)
