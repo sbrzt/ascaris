@@ -40,6 +40,8 @@ def test_mvp_path():
         "source": [], "pubPlace": [], "pubDate": [], "note": [], "license": [], "identifier": [],
         "creationDate": [], "category": [], "abstract": []}).status_code == 200
 
+    assert c.post("/pubDate", json={"document_id": 1, "date": "2023-08-31T10:00:00.640000"}).status_code == 201
+
     upload = c.post("/image/1", data={"file": (io.BytesIO(b"png"), "page.png")})
     assert upload.status_code == 200
     assert c.get("/static/images/1").status_code == 200
@@ -57,5 +59,6 @@ def test_mvp_path():
     assert ref and ref["target"] == "#entity-1"
     assert soup.find("person", attrs={"xml:id": "entity-1"}), "ref target resolves to no entity"
     assert soup.find("annotation")
+    assert soup.find("date", when="2023-08-31")
 
     assert c.delete("/document/1").status_code == 200

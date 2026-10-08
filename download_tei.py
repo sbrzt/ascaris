@@ -1,6 +1,5 @@
 import re
 from bs4 import BeautifulSoup
-from datetime import datetime
 
 
 def read_template():
@@ -66,9 +65,10 @@ def generate_tei(document):
         tei_pubPlace.string = pubPlace['name']
         publicationStmt.append(tei_pubPlace)
     for pubDate in document['pubDate']:
+        if not pubDate["date"]:
+            continue
         tei_pubDate = soup.new_tag('date')
-        pubDate_obj = datetime.strptime(pubDate["date"], "%Y-%m-%dT%H:%M:%S")
-        formatted_pubDate = pubDate_obj.strftime("%Y-%m-%d")
+        formatted_pubDate = pubDate["date"][:10]
         tei_pubDate['xml:id'] = f'pubdate-{pubDate["id"]}'
         tei_pubDate['when'] = formatted_pubDate
         tei_pubDate.string = formatted_pubDate
@@ -92,14 +92,15 @@ def generate_tei(document):
     sourceDesc = soup.find('sourceDesc')
     for source in document['source']:
         tei_source = soup.new_tag('bibl')
-        tei_source['xml:id'] = f'{source["id"]}'
+        tei_source['xml:id'] = f'source-{source["id"]}'
         tei_source.string = source['text']
         sourceDesc.append(tei_source)
     creation = soup.find('creation')
     for creationDate in document['creationDate']:
+        if not creationDate["date"]:
+            continue
         tei_creationDate = soup.new_tag('date')
-        creationDate_obj = datetime.strptime(creationDate["date"], "%Y-%m-%dT%H:%M:%S")
-        formatted_creationDate = creationDate_obj.strftime("%Y-%m-%d")
+        formatted_creationDate = creationDate["date"][:10]
         tei_creationDate['xml:id'] = f'creationdate-{creationDate["id"]}'
         tei_creationDate['when'] = formatted_creationDate
         tei_creationDate.string = formatted_creationDate
@@ -162,7 +163,7 @@ def generate_tei(document):
             list_entity = soup.find('list')
             new_entity = soup.new_tag('item')
             new_entity_label = soup.new_tag('term')
-        new_entity['xsm:id'] = f"entity-{entity['id']}"
+        new_entity['xml:id'] = f"entity-{entity['id']}"
         new_entity['sameAs'] = entity['authority']
         new_entity_label.string = entity['label']
         new_entity.append(new_entity_label)
@@ -233,5 +234,9 @@ def generate_tei(document):
     extent.append(tei_measure_sentences)
     extent.append(tei_measure_references)
     extent.append(tei_measure_annotations)
+
+    # an attribute set to None is serialized without a value, which is not well-formed XML
+    for tag in soup.find_all(True):
+        tag.attrs = {name: value for name, value in tag.attrs.items() if value not in (None, "")}
 
     return soup.prettify()

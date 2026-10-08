@@ -3,14 +3,12 @@ const SaveDocumentModule = (function () {
   function startAutoSave(documentId) {
     const editableContent = document.getElementById("editableContent");
 
-    // Create a MutationObserver to detect changes in the content
-    const observer = new MutationObserver(function (mutationsList) {
-      for (const mutation of mutationsList) {
-        if (mutation.type === "childList" || mutation.type === "characterData") {
-          // Content has changed, initiate an auto-save
-          autoSaveDocumentContent(documentId, editableContent.innerHTML);
-        }
-      }
+    // Save once the content has been still for a second
+    // ponytail: edits made less than 1s before closing the tab are lost, flush on pagehide if that matters
+    let timer;
+    const observer = new MutationObserver(function () {
+      clearTimeout(timer);
+      timer = setTimeout(() => autoSaveDocumentContent(documentId, editableContent.innerHTML), 1000);
     });
 
     // Configure the observer to monitor changes in the content

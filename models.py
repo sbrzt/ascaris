@@ -18,7 +18,7 @@ class Annotation(db.Model):
     language = db.Column(db.String)
     license = db.Column(db.String)
     created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
 
 class Reference(db.Model):
     __tablename__ = "reference"
@@ -220,7 +220,7 @@ class Document(db.Model):
         lazy=True)
     
     created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     def __repr__(self):
         return f"<Document {self.id}>"
