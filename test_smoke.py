@@ -35,6 +35,20 @@ def test_mvp_path():
     assert c.put("/annotation/1", json={
         "text": "the poet", "language": "en", "motivation": "commenting", "license": ""}).status_code == 201
 
+    # a second mention, marked as its own entity and then linked to the first
+    assert c.post("/entity", json={"document_id": 1, "label": "Alighieri", "type": "person", "authority": None}).status_code == 201
+    assert c.post("/reference", json={"document_id": 1, "entity_id": 2, "text": "Alighieri", "type": "person"}).status_code == 201
+    assert c.post("/entity", json={"document_id": 1, "label": "Firenze", "type": "place", "authority": None}).status_code == 201
+    assert c.post("/entity/3/merge/1").status_code == 400, "merged a place into a person"
+    assert c.post("/entity/1/merge/1").status_code == 400
+    merged = c.post("/entity/2/merge/1")
+    assert merged.status_code == 200
+    assert [r["text"] for r in merged.get_json()["reference"]] == ["Dante", "Alighieri"]
+    assert merged.get_json()["label"] == "Dante\nAlighieri"
+    assert c.get("/entity/2").status_code == 404
+    assert c.get("/reference/2").get_json()["entity_id"] == 1
+    assert c.get("/annotation/1").status_code == 200
+
     assert c.post("/title", json={"document_id": 1, "text": "Old", "language": "en"}).status_code == 201
     assert c.put("/title/1", json={"text": "Mid", "language": "en"}).status_code == 201
     assert c.put("/metadata/1", json={
@@ -51,7 +65,7 @@ def test_mvp_path():
     assert upload.status_code == 302
     assert c.get("/static/images/1").status_code == 200
 
-    content = 'Hello <span class="reference person" id="reference-1" data-id="1" data-entity="1">Dante</span><br>last line'
+    content = 'Hello <span class="reference person" id="reference-1" data-id="1" data-entity="1">Dante</span> <span class="reference person" id="reference-2" data-id="2" data-entity="2">Alighieri</span><br>last line'
     assert c.post("/save_document", json={"id": 1, "docTitle": "Doc", "content": content}).status_code == 201
     assert c.get("/document/1/edit").status_code == 200
     assert len(c.get("/document/1").get_json()["image"]) == 1, "autosave detached images"
@@ -60,10 +74,11 @@ def test_mvp_path():
     assert tei.status_code == 200
     soup = BeautifulSoup(tei.data, "xml")
     assert soup.find("title", string=lambda s: s and "New" in s)
-    ref = soup.find("ref")
-    assert ref and ref["target"] == "#entity-1"
+    # the second span still carries the stale data-entity="2"
+    assert [ref["target"] for ref in soup.find_all("ref")] == ["#entity-1", "#entity-1"]
     assert soup.find("person", attrs={"xml:id": "entity-1"}), "ref target resolves to no entity"
     assert soup.find("annotation")
+    assert [name.get_text(strip=True) for name in soup.find("person").find_all("persName")] == ["Dante", "Alighieri"]
     assert soup.find("date", when="2023-08-31")
     assert "last line" in soup.find("body").get_text()
     assert b"None" not in c.get("/document/1/edit").data

@@ -12,7 +12,7 @@ const SaveDocumentModule = (function () {
     });
 
     // Configure the observer to monitor changes in the content
-    observer.observe(editableContent, { subtree: true, characterData: true, childList: true });
+    observer.observe(editableContent, { subtree: true, characterData: true, childList: true, attributeFilter: ['data-entity'] });
   }
 
   // Function to autosave the document content

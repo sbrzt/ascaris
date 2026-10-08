@@ -137,14 +137,17 @@ def generate_tei(document):
         joined_content += content_chunk
     content_soup = BeautifulSoup(joined_content, 'html.parser')
     references = content_soup.find_all('span', class_='reference')
+    # the database, not the markup, says which entity a reference points to
+    entity_of = {str(reference['id']): entity['id']
+                 for entity in document['entity'] for reference in entity['reference']}
     for reference in references:
         ref_tag = soup.new_tag('ref')
         ref_tag.string = reference.text
         for attr_name, attr_value in reference.attrs.items():
             if attr_name == 'id':
                 ref_tag['xml:id'] = f'{attr_value}'
-            elif attr_name == 'data-entity':
-                ref_tag['target'] = f'#entity-{attr_value}'
+            elif attr_name == 'data-id' and attr_value in entity_of:
+                ref_tag['target'] = f'#entity-{entity_of[attr_value]}'
         reference.replace_with(ref_tag)
     tei_body.append(content_soup)
     
@@ -175,8 +178,11 @@ def generate_tei(document):
             new_entity_label = soup.new_tag('term')
         new_entity['xml:id'] = f"entity-{entity['id']}"
         new_entity['sameAs'] = entity['authority']
-        new_entity_label.string = entity['label']
-        new_entity.append(new_entity_label)
+        # one name element per label, see merge_entity
+        for label in entity['label'].split('\n'):
+            label_tag = soup.new_tag(new_entity_label.name)
+            label_tag.string = label
+            new_entity.append(label_tag)
         list_entity.append(new_entity)
 
     listAnnotation = soup.find('listAnnotation')

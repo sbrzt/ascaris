@@ -188,6 +188,23 @@ def resource_route(resource, id):
     return f"Success: {resource} deleted"
 
 
+@app.route('/entity/<int:id>/merge/<int:target_id>', methods=['POST'])
+def merge_entity(id, target_id):
+    """Link all references of one entity to another entity, then delete the first."""
+    entity = db.get_or_404(Entity, id)
+    target = db.get_or_404(Entity, target_id)
+    if entity is target or (entity.document_id, entity.type) != (target.document_id, target.type):
+        abort(400, "Error: entities must be different, of the same type and in the same document")
+    target.reference.extend(list(entity.reference))
+    # ponytail: an entity's labels are newline-separated in Entity.label,
+    # move them to their own table if a label needs fields of its own (language, type)
+    labels = (target.label or '').split('\n') + (entity.label or '').split('\n')
+    target.label = '\n'.join(dict.fromkeys(label for label in labels if label))
+    db.session.delete(entity)
+    db.session.commit()
+    return RESOURCES['entity'][1].dump(target)
+
+
 @app.route('/download_tei/<int:document_id>')
 def download_tei(document_id):
     tei_document = generate_tei(read_document(document_id))

@@ -9,9 +9,9 @@ draggable="true">
             <i class="fas fa-{{ entity.type }}"></i>
         </span>
         <a class="accordion-header" role="button" aria-expanded="false">
-                {% for reference in entity.reference %}
-                    {{ reference.text }}
-                {% endfor %}
+            {%- for label in (entity.label or '').split('\n') -%}
+                <span class="tag is-light mr-1">{{ label }}</span>
+            {%- endfor -%}
         </a>
         <div class="accordion-utilities">
             <span class="counter tag is-info is-light">
@@ -26,9 +26,11 @@ draggable="true">
         <form method="PUT" class="entity-form">
             <div class="field entity-label">
                 <label class="label">Label</label>
-                <div class="control">
-                    <input class="input entity-label-input" type="text" name="entity-label" value="{{ entity.label }}" placeholder="Enter entity's label">
+                {% for label in (entity.label or '').split('\n') %}
+                <div class="control mb-2">
+                    <input class="input entity-label-input" type="text" name="entity-label" value="{{ label }}" placeholder="Enter entity's label">
                 </div>
+                {% endfor %}
             </div>
             <div class="field entity-authority">
                 <label class="label">Authority record</label>
