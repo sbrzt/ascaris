@@ -7,12 +7,9 @@ import { DownloadModule } from './downloadModule.js'
 
 const documentId = document.querySelector('#editableContent').getAttribute('data-documentId');
 
-// main code
 document.addEventListener("DOMContentLoaded", function () {
-  // Initialize the Tabs module
   TabsModule.initializeTabs();
 
-  // Initialize the Save Document module
   SaveDocumentModule.startAutoSave(documentId);
 
 });

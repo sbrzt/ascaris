@@ -1,7 +1,5 @@
 const InterfaceModule = (function () {
 
-    // Button functionalities
-
     function handleAddButtonClick(field, subfields) {
         return async function(event) {
             const addButton = event.target;
@@ -147,9 +145,7 @@ const InterfaceModule = (function () {
     function saveMetadata() {
         const documentId = document.querySelector('.content')
         const documentIdValue = documentId.getAttribute('data-documentId')
-        const formData = {}; // Create an object to store the form data
-
-        // Loop through all input and select elements
+        const formData = {}; 
         const form = document.querySelector('.metadata-form')
         const containers = form.querySelectorAll('.container')
         containers.forEach((container) => {
@@ -174,22 +170,19 @@ const InterfaceModule = (function () {
             formData[containerType] = containerList;
         })
 
-        // Send a PUT request to update the metadata
         fetch(`/metadata/${documentIdValue}`, {
             method: 'PUT',
             headers: {
                 'Content-Type': 'application/json',
             },
-            body: JSON.stringify(formData), // Send the data as JSON
+            body: JSON.stringify(formData), // 
             })
             .then((response) => {
                 console.log('DATA:', JSON.stringify(formData))
                 if (response.ok) {
                     console.log('Metadata updated successfully');
-                    // Handle success, e.g., show a success message
                 } else {
                     console.error('Failed to update metadata');
-                    // Handle failure, e.g., show an error message
                 }
             })
             .catch((error) => {
@@ -199,7 +192,6 @@ const InterfaceModule = (function () {
         
     }
 
-// Attach a click event listener to the "Save" button
 const saveButton = document.getElementById('save-metadata-button');
 const form = document.querySelector('.metadata-form')
 form.addEventListener('submit', (event) => {

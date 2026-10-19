@@ -233,7 +233,6 @@ def make_schema(model, **nested_fields):
 def nested(schema):
     return fields.Nested(schema, many=True)
 
-# URL segment and Document relationship name -> model
 METADATA = {
     "title": Title,
     "responsibility": Responsibility,

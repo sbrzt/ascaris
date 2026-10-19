@@ -3,11 +3,9 @@ from docx import Document as DocxDocument
 
 ALLOWED_EXTENSIONS = {'docx', 'pdf', 'txt'}
 
-# Helper function to check allowed file extensions
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
-# Helper function to read text content from a DOCX file
 def read_docx(uploaded_file):
     try:
         doc = DocxDocument(uploaded_file)
@@ -19,7 +17,6 @@ def read_docx(uploaded_file):
         print(f"Error reading DOCX file: {e}")
         return None
 
-# Helper function to read text content from a PDF file
 def read_pdf(uploaded_file):
     try:
         pdf = PdfReader(uploaded_file)
@@ -32,7 +29,6 @@ def read_pdf(uploaded_file):
         print(f"Error reading PDF file: {e}")
         return None
 
-# Helper function to read text content from a TXT file
 def read_txt(uploaded_file):
     try:
         text_content = uploaded_file.read().decode('utf-8')

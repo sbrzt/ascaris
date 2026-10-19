@@ -1,5 +1,4 @@
 
-// An entity has one label per line of its label field: one tag in the header, one input in the form
 function renderLabels(block, labels) {
   block.querySelector(".accordion-header").replaceChildren(...labels.map(function (label) {
     const tag = document.createElement("span");
@@ -75,7 +74,6 @@ function createPanelBlock(entityData, entityReferences) {
   return block;
 }
 
-// Add a click event listener to the common ancestor of all entity accordions
 const entityPanel = document.querySelector('.entity-panel')
 entityPanel.addEventListener("click", function (event) {
   if (event.target.closest(".accordion-header")) {
@@ -123,8 +121,6 @@ entityPanel.addEventListener("click", function (event) {
 });
 
 
-// Dropping an entity on another one of the same type merges them:
-// the references of the dragged entity are linked to the target entity
 entityPanel.addEventListener("dragstart", function (event) {
   const block = event.target.closest(".panel-block");
   if (block) {
@@ -171,14 +167,12 @@ entityPanel.addEventListener("drop", async function (event) {
   dragged.remove();
 });
 
-// Delegated, so blocks created after page load are handled too
 entityPanel.addEventListener("submit", function (event) {
     event.preventDefault();
     const form = event.target;
     const block = form.closest(".panel-block");
     const entityId = Number(block.getAttribute("data-id"));
     const entityType = block.getAttribute("data-type");
-    // an emptied input removes that label
     const labels = Array.from(form.querySelectorAll(".entity-label-input"), (input) => input.value.trim()).filter(Boolean);
     const entityAuthority = form.querySelector(".entity-authority-input").value;
     const entityData = {
@@ -186,7 +180,6 @@ entityPanel.addEventListener("submit", function (event) {
       authority: entityAuthority,
       type: entityType,
     };
-    // Send a PUT request to update the entity
     fetch(`/entity/${entityId}`, {
         method: 'PUT',
         headers: {

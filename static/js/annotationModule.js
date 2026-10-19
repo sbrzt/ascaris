@@ -1,5 +1,3 @@
-// One modal per reference. Modals and annotation cards that the server did not render
-// are cloned from the <template> elements in edit_document.html.
 const group = document.querySelector('.annotation-group');
 const documentId = document.querySelector('#editableContent').getAttribute('data-documentId');
 const jsonHeaders = { 'Content-Type': 'application/json' };

@@ -4,10 +4,8 @@ from bs4 import BeautifulSoup
 
 TEMPLATE = Path(__file__).parent / "templates" / "tei_template.xml"
 
-# metadata role -> element of titleStmt; TEI has <funder>, the form calls it "founder"
 RESPONSIBILITY_TAGS = {'author': 'author', 'editor': 'editor', 'founder': 'funder', 'sponsor': 'sponsor'}
 PUB_AUTHORITY_TAGS = {'publisher': 'publisher', 'distributor': 'distributor'}
-# entity type -> (list in standOff, element of the entity, element of each label)
 ENTITY_TAGS = {
     'person': ('listPerson', 'person', 'persName'),
     'organization': ('listOrg', 'org', 'orgName'),
@@ -16,7 +14,6 @@ ENTITY_TAGS = {
     'event': ('listEvent', 'event', 'label'),
     'term': ('list', 'item', 'term'),
 }
-# the only values tei_all accepts for annotation/@motivation
 MOTIVATIONS = {'assessing', 'bookmarking', 'classifying', 'commenting', 'describing', 'editing', 'highlighting',
                'identifying', 'linking', 'moderating', 'questioning', 'replying', 'tagging'}
 
@@ -30,17 +27,10 @@ def blank_nones(value):
 
 
 def generate_tei(document):
-    """Return the document as TEI XML that is valid against tei_all.
-
-    Rows the user added but left empty are skipped, and containers that TEI
-    does not allow to be empty are removed or get a placeholder.
-    """
-    # fields the user has not filled yet are null in the database
     document = blank_nones(document)
     soup = BeautifulSoup(TEMPLATE.read_text(encoding='utf-8'), 'xml')
 
     def add(parent, name, text=None, **attributes):
-        """Append an element; xml_id becomes xml:id, empty attributes are left out."""
         tag = soup.new_tag(name)
         if text is not None:
             tag.string = text
@@ -62,7 +52,6 @@ def generate_tei(document):
             add(titleStmt, RESPONSIBILITY_TAGS.get(responsibility['role'], 'principal'), name,
                 xml_id=f'resp-{responsibility["id"]}', sameAs=responsibility['authority'])
 
-    # TEI wants a publisher, distributor or authority before any other publication detail
     publicationStmt = soup.find('publicationStmt')
     agencies = [pubAuthority for pubAuthority in document['pubAuthority'] if pubAuthority['name']]
     for pubAuthority in agencies:
@@ -119,12 +108,10 @@ def generate_tei(document):
         if abstract['text']:
             add(add(profileDesc, 'abstract', xml_id=f'abstract-{abstract["id"]}'), 'p', abstract['text'])
 
-    # one paragraph per line of the editor
     tei_body = soup.find('body')
     lines = [line for line in document['content'].strip().split('<br>') if line.strip()] or ['']
     paragraphs = ''.join(f'<p xml:id="paragraph-{i}" n="{i}">{line}</p>' for i, line in enumerate(lines))
     content_soup = BeautifulSoup(paragraphs, 'html.parser')
-    # the database, not the markup, says which entity a reference points to
     entity_of = {str(reference['id']): entity['id']
                  for entity in document['entity'] for reference in entity['reference']}
     for reference in content_soup.find_all('span', class_='reference'):
@@ -135,7 +122,6 @@ def generate_tei(document):
         if reference.get('data-id') in entity_of:
             ref_tag['target'] = f"#entity-{entity_of[reference['data-id']]}"
         reference.replace_with(ref_tag)
-    # any other HTML the browser left in the text is not TEI: keep its text only
     for tag in content_soup.find_all(True):
         if tag.name not in ('p', 'ref'):
             tag.unwrap()
@@ -148,12 +134,10 @@ def generate_tei(document):
         list_name, entity_name, label_name = ENTITY_TAGS[entity['type']]
         new_entity = add(standOff.find(list_name), entity_name,
                          xml_id=f"entity-{entity['id']}", sameAs=entity['authority'])
-        # one name element per label, see merge_entity
         labels = [label for label in entity['label'].split('\n') if label]
         for label in labels or [reference['text'] for reference in entity['reference']]:
             add(new_entity, label_name, label)
 
-    # annotations of a reference whose text was deleted have nothing to point at
     anchored = {ref.get('xml:id') for ref in tei_body.find_all('ref')}
     listAnnotation = soup.find('listAnnotation')
     for entity in document['entity']:
@@ -169,13 +153,11 @@ def generate_tei(document):
                 revision = add(tei_annotation, 'revisionDesc')
                 add(revision, 'change', when=annotation['created_at'], status='created')
                 add(revision, 'change', when=annotation['updated_at'], status='modified')
-                # tei_all wants the licence before the note
                 if annotation['license']:
                     add(tei_annotation, 'licence', target=annotation['license'])
                 if annotation['text']:
                     add(tei_annotation, 'note', annotation['text'])
 
-    # TEI does not allow these lists, or standOff itself, to be empty
     for entity_list in standOff.find_all(recursive=False):
         if entity_list.find() is None:
             entity_list.decompose()
@@ -194,5 +176,4 @@ def generate_tei(document):
     for unit, count in counts.items():
         add(extent, 'measure', str(count), unit=unit, quantity=count)
 
-    # not prettify(): it would put line breaks and indentation inside the text of the edition
     return str(soup)

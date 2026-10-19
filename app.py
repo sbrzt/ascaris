@@ -17,7 +17,6 @@ RESOURCE = f"any({','.join(RESOURCES)})"
 
 app.secret_key = secrets.token_hex(24)
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
-# unfilled fields are null in the database, show them empty instead of "None"
 app.jinja_env.finalize = lambda value: '' if value is None else value
 
 with app.app_context():
@@ -33,7 +32,6 @@ def read_document(id):
     return document_schema.dump(db.get_or_404(Document, id))
 
 def create_document(title, text):
-    # the editor stores HTML: escape the plain text and turn line breaks into <br>
     content = '<br>'.join(str(escape(text)).splitlines())
     document = document_schema.load({'docTitle': title, 'content': content})
     db.session.add(document)
@@ -173,7 +171,6 @@ def save_metadata(id):
     return jsonify(data), 200
 
 
-# CRUD for entity, reference, annotation and every metadata field
 @app.route(f'/<{RESOURCE}:resource>', methods=['POST'])
 def create_resource_route(resource):
     return create_resource(resource, request.get_json())
@@ -199,8 +196,6 @@ def merge_entity(id, target_id):
     if entity is target or (entity.document_id, entity.type) != (target.document_id, target.type):
         abort(400, "Error: entities must be different, of the same type and in the same document")
     target.reference.extend(list(entity.reference))
-    # ponytail: an entity's labels are newline-separated in Entity.label,
-    # move them to their own table if a label needs fields of its own (language, type)
     labels = (target.label or '').split('\n') + (entity.label or '').split('\n')
     target.label = '\n'.join(dict.fromkeys(label for label in labels if label))
     db.session.delete(entity)
@@ -237,7 +232,6 @@ def create_image(document_id):
         image = Image(document_id=document_id, name=secure_filename(file.filename))
         db.session.add(image)
         db.session.flush()
-        # the id keeps files with the same name apart
         image.name = f"{image.id}_{image.name}"
         file.save(image_path(image))
         db.session.commit()

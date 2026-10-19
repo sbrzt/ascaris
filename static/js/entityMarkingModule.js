@@ -63,13 +63,11 @@ const EntityMarkingModule = (function () {
     const range = selection.getRangeAt(0);
     const container = range.commonAncestorContainer;
     const element = container.nodeType === Node.ELEMENT_NODE ? container : container.parentElement;
-    // Only text of the document can be marked, and references do not nest
     if (!editableContent.contains(container) || element.closest('.reference')) return;
     const selectedText = range.toString();
 
     const span = document.createElement("span");
     try {
-      // Throws when the selection cuts through another element
       range.surroundContents(span);
     } catch (error) {
       console.error('Selection cannot be marked:', error);
@@ -112,7 +110,6 @@ const EntityMarkingModule = (function () {
     button.addEventListener("click", () => markEntity(buttonDetails));
   });
 
-  // Delegated, so references marked after page load open their annotations too
   editableContent.addEventListener("click", function (event) {
     const reference = event.target.closest(".reference");
     if (reference) {
