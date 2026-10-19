@@ -1,234 +1,237 @@
 from datetime import datetime
-from config import db, ma
+from sqlalchemy import Column, DateTime, ForeignKey, Integer, String, Text
+from sqlalchemy.orm import relationship
+from marshmallow_sqlalchemy import SQLAlchemyAutoSchema
+from config import Base, session
 from marshmallow_sqlalchemy import fields
 
-class Image(db.Model):
+class Image(Base):
     __tablename__ = "image"
-    id = db.Column(db.Integer, primary_key=True)
-    document_id = db.Column(db.Integer, db.ForeignKey("document.id"))
-    name = db.Column(db.String)
+    id = Column(Integer, primary_key=True)
+    document_id = Column(Integer, ForeignKey("document.id"))
+    name = Column(String)
 
-class Annotation(db.Model):
+class Annotation(Base):
     __tablename__ = "annotation"
-    id = db.Column(db.Integer, primary_key=True)
-    document_id = db.Column(db.Integer, db.ForeignKey("document.id"))
-    reference_id = db.Column(db.Integer, db.ForeignKey("reference.id"))
-    text = db.Column(db.String)
-    motivation = db.Column(db.String)
-    language = db.Column(db.String)
-    license = db.Column(db.String)
-    created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
+    id = Column(Integer, primary_key=True)
+    document_id = Column(Integer, ForeignKey("document.id"))
+    reference_id = Column(Integer, ForeignKey("reference.id"))
+    text = Column(String)
+    motivation = Column(String)
+    language = Column(String)
+    license = Column(String)
+    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    updated_at = Column(DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
 
-class Reference(db.Model):
+class Reference(Base):
     __tablename__ = "reference"
-    id = db.Column(db.Integer, primary_key=True)
-    document_id = db.Column(db.Integer, db.ForeignKey("document.id"))
-    entity_id = db.Column(db.Integer, db.ForeignKey("entity.id"))
-    text = db.Column(db.String)
-    type = db.Column(db.String)
-    annotation = db.relationship(
+    id = Column(Integer, primary_key=True)
+    document_id = Column(Integer, ForeignKey("document.id"))
+    entity_id = Column(Integer, ForeignKey("entity.id"))
+    text = Column(String)
+    type = Column(String)
+    annotation = relationship(
         Annotation,
         backref="annotation",
         cascade="all, delete, delete-orphan",
         single_parent=True,
         lazy=True)
 
-class Entity(db.Model):
+class Entity(Base):
     __tablename__ = "entity"
-    id = db.Column(db.Integer, primary_key=True)
-    document_id = db.Column(db.Integer, db.ForeignKey("document.id"))
-    type = db.Column(db.String)
-    label = db.Column(db.String)
-    authority = db.Column(db.String)
-    reference = db.relationship(
+    id = Column(Integer, primary_key=True)
+    document_id = Column(Integer, ForeignKey("document.id"))
+    type = Column(String)
+    label = Column(String)
+    authority = Column(String)
+    reference = relationship(
         Reference,
         backref="reference",
         cascade="all, delete, delete-orphan",
         single_parent=True,
         lazy=True)
 
-class Title(db.Model):
+class Title(Base):
     __tablename__ = "title"
-    id = db.Column(db.Integer, primary_key=True)
-    document_id = db.Column(db.Integer, db.ForeignKey("document.id"))
-    text = db.Column(db.String)
-    language = db.Column(db.String)
+    id = Column(Integer, primary_key=True)
+    document_id = Column(Integer, ForeignKey("document.id"))
+    text = Column(String)
+    language = Column(String)
 
-class Responsibility(db.Model):
+class Responsibility(Base):
     __tablename__ = "responsibility"
-    id = db.Column(db.Integer, primary_key=True)
-    document_id = db.Column(db.Integer, db.ForeignKey("document.id"))
-    surname = db.Column(db.String)
-    name = db.Column(db.String)
-    authority = db.Column(db.String)
-    role = db.Column(db.String)
+    id = Column(Integer, primary_key=True)
+    document_id = Column(Integer, ForeignKey("document.id"))
+    surname = Column(String)
+    name = Column(String)
+    authority = Column(String)
+    role = Column(String)
 
-class PubAuthority(db.Model):
+class PubAuthority(Base):
     __tablename__ = "pub_authority"
-    id = db.Column(db.Integer, primary_key=True)
-    document_id = db.Column(db.Integer, db.ForeignKey('document.id'))
-    name = db.Column(db.String)
-    authority = db.Column(db.String)
-    role = db.Column(db.String)
+    id = Column(Integer, primary_key=True)
+    document_id = Column(Integer, ForeignKey('document.id'))
+    name = Column(String)
+    authority = Column(String)
+    role = Column(String)
 
-class PubPlace(db.Model):
+class PubPlace(Base):
     __tablename__ = "pub_place"
-    id = db.Column(db.Integer, primary_key=True)
-    document_id = db.Column(db.Integer, db.ForeignKey('document.id'))
-    name = db.Column(db.String)
-    authority = db.Column(db.String)
+    id = Column(Integer, primary_key=True)
+    document_id = Column(Integer, ForeignKey('document.id'))
+    name = Column(String)
+    authority = Column(String)
 
-class PubDate(db.Model):
+class PubDate(Base):
     __tablename__ = "pub_date"
-    id = db.Column(db.Integer, primary_key=True)
-    document_id = db.Column(db.Integer, db.ForeignKey('document.id'))
-    date = db.Column(db.DateTime)
+    id = Column(Integer, primary_key=True)
+    document_id = Column(Integer, ForeignKey('document.id'))
+    date = Column(DateTime)
 
-class Identifier(db.Model):
+class Identifier(Base):
     __tablename__ = "identifier"
-    id = db.Column(db.Integer, primary_key=True)
-    document_id = db.Column(db.Integer, db.ForeignKey('document.id'))
-    text = db.Column(db.String)
-    type = db.Column(db.String)
+    id = Column(Integer, primary_key=True)
+    document_id = Column(Integer, ForeignKey('document.id'))
+    text = Column(String)
+    type = Column(String)
 
-class License(db.Model):
+class License(Base):
     __tablename__ = "license"
-    id = db.Column(db.Integer, primary_key=True)
-    document_id = db.Column(db.Integer, db.ForeignKey('document.id'))
-    text = db.Column(db.String)
-    link = db.Column(db.String)
+    id = Column(Integer, primary_key=True)
+    document_id = Column(Integer, ForeignKey('document.id'))
+    text = Column(String)
+    link = Column(String)
 
-class Source(db.Model):
+class Source(Base):
     __tablename__ = "source"
-    id = db.Column(db.Integer, primary_key=True)
-    document_id = db.Column(db.Integer, db.ForeignKey('document.id'))
-    text = db.Column(db.String)
+    id = Column(Integer, primary_key=True)
+    document_id = Column(Integer, ForeignKey('document.id'))
+    text = Column(String)
 
-class Note(db.Model):
+class Note(Base):
     __tablename__ = "note"
-    id = db.Column(db.Integer, primary_key=True)
-    document_id = db.Column(db.Integer, db.ForeignKey('document.id'))
-    text = db.Column(db.String)
+    id = Column(Integer, primary_key=True)
+    document_id = Column(Integer, ForeignKey('document.id'))
+    text = Column(String)
 
-class Abstract(db.Model):
+class Abstract(Base):
     __tablename__ = "abstract"
-    id = db.Column(db.Integer, primary_key=True)
-    document_id = db.Column(db.Integer, db.ForeignKey('document.id'))
-    text = db.Column(db.String)
+    id = Column(Integer, primary_key=True)
+    document_id = Column(Integer, ForeignKey('document.id'))
+    text = Column(String)
 
-class CreationDate(db.Model):
+class CreationDate(Base):
     __tablename__ = "creation_date"
-    id = db.Column(db.Integer, primary_key=True)
-    document_id = db.Column(db.Integer, db.ForeignKey('document.id'))
-    date = db.Column(db.DateTime)
+    id = Column(Integer, primary_key=True)
+    document_id = Column(Integer, ForeignKey('document.id'))
+    date = Column(DateTime)
 
-class Category(db.Model):
+class Category(Base):
     __tablename__ = "category"
-    id = db.Column(db.Integer, primary_key=True)
-    document_id = db.Column(db.Integer, db.ForeignKey('document.id'))
-    type = db.Column(db.String)
+    id = Column(Integer, primary_key=True)
+    document_id = Column(Integer, ForeignKey('document.id'))
+    type = Column(String)
 
-class Document(db.Model):
+class Document(Base):
     __tablename__ = "document"
-    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
-    docTitle = db.Column(db.String(100), nullable=False)
-    content = db.Column(db.Text, nullable=False)
-    image = db.relationship(
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    docTitle = Column(String(100), nullable=False)
+    content = Column(Text, nullable=False)
+    image = relationship(
         Image,
         backref="document",
         cascade="all, delete, delete-orphan",
         single_parent=True,
         lazy=True
     )
-    title = db.relationship(
+    title = relationship(
         Title,
         backref="document",
         cascade="all, delete, delete-orphan",
         single_parent=True,
         lazy=True)
-    responsibility = db.relationship(
+    responsibility = relationship(
         Responsibility, 
         backref='document', 
         cascade="all, delete, delete-orphan",
         single_parent=True,
         lazy=True)
-    pubAuthority = db.relationship(
+    pubAuthority = relationship(
         PubAuthority, 
         backref='document', 
         cascade="all, delete, delete-orphan",
         single_parent=True,
         lazy=True)
-    pubPlace = db.relationship(
+    pubPlace = relationship(
         PubPlace, 
         backref='document', 
         cascade="all, delete, delete-orphan",
         single_parent=True,
         lazy=True)
-    pubDate = db.relationship(
+    pubDate = relationship(
         PubDate, 
         backref='document',
         cascade="all, delete, delete-orphan",
         single_parent=True,
         lazy=True)
-    identifier = db.relationship(
+    identifier = relationship(
         Identifier,
         backref='document',
         cascade="all, delete, delete-orphan",
         single_parent=True,
         lazy=True)
-    license = db.relationship(
+    license = relationship(
         License, 
         backref='document',
         cascade="all, delete, delete-orphan",
         single_parent=True, 
         lazy=True)
-    source = db.relationship(
+    source = relationship(
         Source, 
         backref='document',
         cascade="all, delete, delete-orphan",
         single_parent=True, 
         lazy=True)
-    note = db.relationship(
+    note = relationship(
         Note,
         backref='document',
         cascade="all, delete, delete-orphan",
         single_parent=True,
         lazy=True)
-    abstract = db.relationship(
+    abstract = relationship(
         Abstract, 
         backref='document',
         cascade="all, delete, delete-orphan",
         single_parent=True,
         lazy=True)
-    creationDate = db.relationship(
+    creationDate = relationship(
         CreationDate, 
         backref='document',
         cascade="all, delete, delete-orphan",
         single_parent=True,
         lazy=True)
-    category = db.relationship(
+    category = relationship(
         Category, 
         backref='document',
         cascade="all, delete, delete-orphan",
         single_parent=True,
         lazy=True)
-    entity = db.relationship(
+    entity = relationship(
         Entity,
         backref='document',
         cascade='all, delete, delete-orphan',
         single_parent=True,
         lazy=True)
     
-    created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    updated_at = Column(DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     def __repr__(self):
         return f"<Document {self.id}>"
 
 def make_schema(model, **nested_fields):
-    meta = type("Meta", (), {"model": model, "load_instance": True, "sqla_session": db.session, "include_fk": True})
-    return type(f"{model.__name__}Schema", (ma.SQLAlchemyAutoSchema,), {"Meta": meta, **nested_fields})
+    meta = type("Meta", (), {"model": model, "load_instance": True, "sqla_session": session, "include_fk": True})
+    return type(f"{model.__name__}Schema", (SQLAlchemyAutoSchema,), {"Meta": meta, **nested_fields})
 
 def nested(schema):
     return fields.Nested(schema, many=True)

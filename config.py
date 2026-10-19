@@ -1,11 +1,12 @@
 import os
-from flask import Flask
-from flask_sqlalchemy import SQLAlchemy
-from flask_marshmallow import Marshmallow
+from contextvars import ContextVar
+from sqlalchemy import create_engine
+from sqlalchemy.orm import declarative_base, scoped_session, sessionmaker
 
-app = Flask(__name__)
-app.config["SQLALCHEMY_DATABASE_URI"] = os.environ.get("ASCARIS_DB", "sqlite:///test2.db")
-app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
+ROOT = os.path.dirname(os.path.abspath(__file__))
 
-db = SQLAlchemy(app)
-ma = Marshmallow(app)
+engine = create_engine(os.environ.get("ASCARIS_DB", f"sqlite:///{ROOT}/instance/test2.db"))
+# one session per request: the app sets request_scope for each request and removes the session after it
+request_scope = ContextVar("request_scope", default=None)
+session = scoped_session(sessionmaker(engine), scopefunc=request_scope.get)
+Base = declarative_base()

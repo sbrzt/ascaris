@@ -47,5 +47,5 @@
   {% with reference = {}, annotation = {} %}{% include 'annotation.html' %}{% endwith %}
 </template>
 
-<script type="module" src="{{ url_for('static', filename='js/editor.js') }}"></script>
+<script type="module" src="{{ url_for('static', path='js/editor.js') }}"></script>
 {% endblock %}
